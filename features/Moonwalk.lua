@@ -5,7 +5,12 @@ return function(LiuGhost)
 	local TweenService = game:GetService("TweenService")
 
 	local lp = Players.LocalPlayer
-	local cfg = { visible = LiuGhost.State.Moonwalk == true, holding = false, turnSpeed = 0.35 }
+	local cfg = {
+		visible = LiuGhost.State.Moonwalk == true, -- toggle GUI: tampilkan / sembunyikan tombol MW
+		enabled = false,                           -- status moonwalk (tap tombol MW)
+		turnSpeed = 0.35,
+	}
+	local conns = {}
 
 	local function getParts()
 		local char = lp.Character
@@ -16,7 +21,7 @@ return function(LiuGhost)
 
 	local function applyAutoRotate()
 		local _, hum = getParts()
-		if hum then hum.AutoRotate = not cfg.holding end
+		if hum then hum.AutoRotate = not cfg.enabled end
 	end
 
 	local function guiAlive()
@@ -25,7 +30,7 @@ return function(LiuGhost)
 	end
 
 	----------------------------------------------------------------
-	-- TOMBOL MW (hold = moonwalk, geser jauh = pindah posisi)
+	-- TOMBOL MW (tap = toggle, geser = pindah posisi)
 	----------------------------------------------------------------
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "LiuGhostMW"
@@ -47,4 +52,93 @@ return function(LiuGhost)
 	Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
 
 	local stroke = Instance.new("UIStroke", btn)
-	stroke.Color = Color3.fro
+	stroke.Color = Color3.fromRGB(70, 70, 74)
+	stroke.Thickness = 1.5
+
+	local function paint()
+		TweenService:Create(btn, TweenInfo.new(0.2), {
+			BackgroundColor3 = cfg.enabled and Color3.fromRGB(235, 235, 235) or Color3.fromRGB(22, 22, 24),
+			TextColor3 = cfg.enabled and Color3.fromRGB(20, 20, 20) or Color3.fromRGB(200, 200, 200),
+		}):Play()
+	end
+
+	local function setEnabled(v)
+		cfg.enabled = v
+		applyAutoRotate()
+		paint()
+	end
+
+	local pressing, moved = false, false
+	local startInput, startPos
+
+	table.insert(conns, btn.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			pressing, moved = true, false
+			startInput = i.Position
+			startPos = btn.Position
+		end
+	end))
+
+	table.insert(conns, UserInputService.InputChanged:Connect(function(i)
+		if not pressing then return end
+		if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+			local d = i.Position - startInput
+			if d.Magnitude > 8 then moved = true end
+			if moved then
+				btn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+			end
+		end
+	end))
+
+	table.insert(conns, UserInputService.InputEnded:Connect(function(i)
+		if not pressing then return end
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			pressing = false
+			if not moved then setEnabled(not cfg.enabled) end
+		end
+	end))
+
+	----------------------------------------------------------------
+	-- MOONWALK: badan menghadap berlawanan arah gerak
+	----------------------------------------------------------------
+	local renderConn
+	renderConn = RunService.RenderStepped:Connect(function()
+		-- GUI ditutup: bersihkan semuanya
+		if not guiAlive() then
+			renderConn:Disconnect()
+			for _, c in ipairs(conns) do c:Disconnect() end
+			table.clear(conns)
+			cfg.enabled = false
+			applyAutoRotate()
+			gui:Destroy()
+			return
+		end
+
+		if not cfg.visible or not cfg.enabled then return end
+		local _, hum, root = getParts()
+		if not hum or not root or hum.Health <= 0 then return end
+
+		local dir = hum.MoveDirection
+		if dir.Magnitude < 0.1 then return end
+
+		local back = Vector3.new(-dir.X, 0, -dir.Z)
+		local goal = CFrame.lookAt(root.Position, root.Position + back)
+		root.CFrame = root.CFrame:Lerp(goal, cfg.turnSpeed)
+	end)
+
+	table.insert(conns, lp.CharacterAdded:Connect(function()
+		task.wait(0.3)
+		applyAutoRotate()
+	end))
+
+	----------------------------------------------------------------
+	-- HOOK DARI GUI
+	----------------------------------------------------------------
+	LiuGhost.Hooks.Moonwalk = function(state)
+		cfg.visible = state == true
+		btn.Visible = cfg.visible
+		if not cfg.visible and cfg.enabled then
+			setEnabled(false)
+		end
+	end
+end
