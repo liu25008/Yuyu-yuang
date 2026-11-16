@@ -18,20 +18,33 @@ return function(LiuGhost)
 		return LiuGhost.State.DaggerRadius or 15
 	end
 
-	local function findDagger()
-		local char = lp.Character
-		if char then
-			for _, t in ipairs(char:GetChildren()) do
-				if t:IsA("Tool") and string.find(string.lower(t.Name), "dagger") then return t end
-			end
-		end
-		local bp = lp:FindFirstChildOfClass("Backpack")
-		if bp then
-			for _, t in ipairs(bp:GetChildren()) do
-				if t:IsA("Tool") and string.find(string.lower(t.Name), "dagger") then return t end
-			end
+	local VIM = game:GetService("VirtualInputManager")
+local TOOL_KEYS = { "dagger", "knife" }
+local USE_CLICK = false -- ubah ke true kalau Activate saja tidak memukul
+
+local function isDagger(t)
+	if not t:IsA("Tool") then return false end
+	local n = string.lower(t.Name)
+	for _, k in ipairs(TOOL_KEYS) do
+		if string.find(n, k, 1, true) then return true end
+	end
+	return false
+end
+
+local function findDagger()
+	local char = lp.Character
+	if char then
+		for _, t in ipairs(char:GetChildren()) do
+			if isDagger(t) then return t end
 		end
 	end
+	local bp = lp:FindFirstChildOfClass("Backpack")
+	if bp then
+		for _, t in ipairs(bp:GetChildren()) do
+			if isDagger(t) then return t end
+		end
+	end
+end
 
 	local function nearestTarget(myRoot)
 		local best, bestDist
@@ -86,14 +99,26 @@ return function(LiuGhost)
 		if not target then return end
 
 		local dagger = findDagger()
-		if not dagger then return end
-		if dagger.Parent ~= char then hum:EquipTool(dagger) end
+if not dagger then return end
 
-		myRoot.CFrame = CFrame.lookAt(myRoot.Position, Vector3.new(target.Position.X, myRoot.Position.Y, target.Position.Z))
-		lastHit = os.clock()
-		dagger:Activate()
+-- equip dulu, pukul di frame berikutnya
+if dagger.Parent ~= char then
+	hum:EquipTool(dagger)
+	return
+end
+
+myRoot.CFrame = CFrame.lookAt(myRoot.Position, Vector3.new(target.Position.X, myRoot.Position.Y, target.Position.Z))
+lastHit = os.clock()
+dagger:Activate()
+
+if USE_CLICK then
+	pcall(function()
+		local cam = workspace.CurrentCamera
+		local c = cam.ViewportSize / 2
+		VIM:SendMouseButtonEvent(c.X, c.Y, 0, true, game, 0)
+		VIM:SendMouseButtonEvent(c.X, c.Y, 0, false, game, 0)
 	end)
-
+end
 	----------------------------------------------------------------
 	-- ANTI FAKE HIT (toggle: FakeHit)
 	----------------------------------------------------------------
