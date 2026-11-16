@@ -160,12 +160,12 @@ local TEXT = Color3.fromRGB(235, 235, 235)
 	-- ESP OBJEK (Pallet / Window / Trap / Zombie / Generator)
 	----------------------------------------------------------------
 	local kinds = {
-		pallet    = { kw = "pallet",    label = "Pallet",    color = ORANGE, thick = 0.04, on = false, items = {} },
-		window    = { kw = "window",    label = "Window",    color = ORANGE, thick = 0.04, on = false, items = {} },
-		trap      = { kw = "trap",      label = "TRAP",      color = BLUE,   thick = 0.09, on = false, items = {} },
-		zombie    = { kw = "zombie",    label = "Zombie",    color = GREEN,  thick = 0.05, on = false, items = {} },
-		generator = { kw = "generator", label = "Generator", color = PINK,   thick = 0.05, on = false, items = {}, progress = true },
-	}
+	pallet    = { kw = "pallet",    label = "Pallet",    color = ORANGE, thick = 0.04, on = false, items = {}, nolabel = true },
+	window    = { kw = "window",    label = "Window",    color = ORANGE, thick = 0.04, on = false, items = {}, nolabel = true },
+	trap      = { kw = "trap",      label = "TRAP",      color = BLUE,   thick = 0.09, on = false, items = {} },
+	zombie    = { kw = "zombie",    label = "Zombie",    color = GREEN,  thick = 0.05, on = false, items = {} },
+	generator = { kw = "generator", label = "Generator", color = PINK,   thick = 0.05, on = false, items = {}, progress = true },
+}
 	local tracked = {}
 
 	local function classify(inst)
@@ -192,17 +192,16 @@ local TEXT = Color3.fromRGB(235, 235, 235)
 		end
 	end
 
-	local function removeItem(key, inst)
-		local item = kinds[key].items[inst]
-		if item then
-			item.box:Destroy()
-			item.bb:Destroy()
-			item.conn:Disconnect()
-			kinds[key].items[inst] = nil
-		end
-		tracked[inst] = nil
+local function removeItem(key, inst)
+	local item = kinds[key].items[inst]
+	if item then
+		item.box:Destroy()
+		if item.bb then item.bb:Destroy() end
+		item.conn:Disconnect()
+		kinds[key].items[inst] = nil
 	end
-
+	tracked[inst] = nil
+end
 	local function addItem(inst)
 	if tracked[inst] or not inst.Parent then return end
 	local key = classify(inst)
@@ -222,26 +221,29 @@ local TEXT = Color3.fromRGB(235, 235, 235)
 	box.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 	box.Parent = inst
 
-	local big = d.progress == true
+	local bb, label
 
-	local bb = Instance.new("BillboardGui")
-	bb.Size = big and UDim2.fromOffset(220, 36) or UDim2.fromOffset(150, 24)
-	bb.StudsOffset = Vector3.new(0, big and 3 or 2, 0)
-	bb.AlwaysOnTop = true
-	bb.Adornee = part
-	bb.Parent = part
+	if not d.nolabel then
+		local big = d.progress == true
 
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.fromScale(1, 1)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = d.color
-	label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
-label.TextStrokeTransparency = 0.3
-	label.Font = big and Enum.Font.GothamBold or Enum.Font.GothamMedium
-	label.TextSize = big and 22 or 15
-	label.Text = d.label
-		
-	label.Parent = bb
+		bb = Instance.new("BillboardGui")
+		bb.Size = big and UDim2.fromOffset(220, 36) or UDim2.fromOffset(150, 24)
+		bb.StudsOffset = Vector3.new(0, big and 3 or 2, 0)
+		bb.AlwaysOnTop = true
+		bb.Adornee = part
+		bb.Parent = part
+
+		label = Instance.new("TextLabel")
+		label.Size = UDim2.fromScale(1, 1)
+		label.BackgroundTransparency = 1
+		label.TextColor3 = d.color
+		label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+		label.TextStrokeTransparency = 0.3
+		label.Font = big and Enum.Font.GothamBold or Enum.Font.GothamMedium
+		label.TextSize = big and 22 or 15
+		label.Text = d.label
+		label.Parent = bb
+	end
 
 	local conn = inst.AncestryChanged:Connect(function()
 		if not inst:IsDescendantOf(workspace) then removeItem(key, inst) end
