@@ -4,13 +4,12 @@ return function(LiuGhost)
 
 	local lp = Players.LocalPlayer
 
-	local RED = Color3.fromRGB(255, 60, 60)
-	local BLUE = Color3.fromRGB(70, 130, 255)
-	local ORANGE = Color3.fromRGB(255, 140, 0)
-	local GREEN = Color3.fromRGB(110, 170, 110)
-	local PINK = Color3.fromRGB(255, 105, 180)
-	local TEXT = Color3.fromRGB(235, 235, 235)
-
+	local RED = Color3.fromRGB(190, 0, 0)
+local BLUE = Color3.fromRGB(0, 60, 200)
+local ORANGE = Color3.fromRGB(210, 95, 0)
+local GREEN = Color3.fromRGB(0, 130, 40)
+local PINK = Color3.fromRGB(190, 20, 110)
+local TEXT = Color3.fromRGB(235, 235, 235)
 	local function on(id)
 		return LiuGhost.State[id] == true
 	end
@@ -48,7 +47,7 @@ return function(LiuGhost)
 
 		local hl = Instance.new("Highlight")
 		hl.FillColor = color
-		hl.FillTransparency = role == "killer" and 0.7 or 0.75
+		hl.FillTransparency = 0.4
 		hl.OutlineColor = color
 		hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
 		hl.Parent = char
@@ -205,50 +204,55 @@ return function(LiuGhost)
 	end
 
 	local function addItem(inst)
-		if tracked[inst] or not inst.Parent then return end
-		local key = classify(inst)
-		if not key or hasTrackedAncestor(inst) then return end
-		if inst:IsA("Model") and Players:GetPlayerFromCharacter(inst) then return end
-		local part = anchorPart(inst)
-		if not part then return end
-		local d = kinds[key]
+	if tracked[inst] or not inst.Parent then return end
+	local key = classify(inst)
+	if not key or hasTrackedAncestor(inst) then return end
+	if inst:IsA("Model") and Players:GetPlayerFromCharacter(inst) then return end
+	local part = anchorPart(inst)
+	if not part then return end
+	local d = kinds[key]
 
-		local box = Instance.new("SelectionBox")
-		box.Adornee = inst
-		box.Color3 = d.color
-		box.SurfaceColor3 = d.color
-		box.SurfaceTransparency = 0.88
-		box.LineThickness = d.thick
-		box.Parent = inst
+	-- highlight mengikuti bentuk objek, bukan kotak
+	local box = Instance.new("Highlight")
+	box.Adornee = inst
+	box.FillColor = d.color
+	box.FillTransparency = 0.4
+	box.OutlineColor = d.color
+	box.OutlineTransparency = 0
+	box.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	box.Parent = inst
 
-		local bb = Instance.new("BillboardGui")
-		bb.Size = UDim2.fromOffset(130, 20)
-		bb.StudsOffset = Vector3.new(0, 2, 0)
-		bb.AlwaysOnTop = true
-		bb.Adornee = part
-		bb.Parent = part
+	local big = d.progress == true
 
-		local label = Instance.new("TextLabel")
-		label.Size = UDim2.fromScale(1, 1)
-		label.BackgroundTransparency = 1
-		label.TextColor3 = d.color
-		label.TextStrokeTransparency = 0.4
-		label.Font = Enum.Font.GothamMedium
-		label.TextSize = 12
-		label.Text = d.label
-		label.Parent = bb
+	local bb = Instance.new("BillboardGui")
+	bb.Size = big and UDim2.fromOffset(220, 36) or UDim2.fromOffset(150, 24)
+	bb.StudsOffset = Vector3.new(0, big and 3 or 2, 0)
+	bb.AlwaysOnTop = true
+	bb.Adornee = part
+	bb.Parent = part
 
-		local conn = inst.AncestryChanged:Connect(function()
-			if not inst:IsDescendantOf(workspace) then removeItem(key, inst) end
-		end)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = d.color
+	label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
+label.TextStrokeTransparency = 0.3
+	label.Font = big and Enum.Font.GothamBold or Enum.Font.GothamMedium
+	label.TextSize = big and 22 or 15
+	label.Text = d.label
+		
+	label.Parent = bb
 
-		tracked[inst] = key
-		d.items[inst] = {
-			box = box, bb = bb, label = label, part = part, conn = conn,
-			inst = inst, src = nil,
-		}
-	end
+	local conn = inst.AncestryChanged:Connect(function()
+		if not inst:IsDescendantOf(workspace) then removeItem(key, inst) end
+	end)
 
+	tracked[inst] = key
+	d.items[inst] = {
+		box = box, bb = bb, label = label, part = part, conn = conn,
+		inst = inst, src = nil,
+	}
+end
 	local function setKind(key, state)
 		local d = kinds[key]
 		d.on = state
