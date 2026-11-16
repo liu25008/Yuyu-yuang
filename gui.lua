@@ -463,25 +463,92 @@ end
 
 selectPage(Pages[1].name)
 
--- Minimize (RightShift buka lagi) dan close
+-- Tombol bubble (tap = buka/tutup, geser = pindah posisi)
 local hidden = false
+local conns = {}
+
+local openBtn = Instance.new("TextButton")
+openBtn.Name = "OpenBtn"
+openBtn.Size = UDim2.fromOffset(44, 44)
+openBtn.Position = UDim2.new(0, 20, 0.5, -22)
+openBtn.BackgroundColor3 = Theme.Panel
+openBtn.AutoButtonColor = false
+openBtn.Text = "LG"
+openBtn.TextColor3 = Theme.AccentSoft
+openBtn.Font = Enum.Font.GothamBold
+openBtn.TextSize = 14
+openBtn.BorderSizePixel = 0
+openBtn.ZIndex = 10
+openBtn.Parent = gui
+round(openBtn, 22)
+
+local openStroke = Instance.new("UIStroke")
+openStroke.Color = Theme.Accent
+openStroke.Transparency = 0.35
+openStroke.Thickness = 1.5
+openStroke.Parent = openBtn
+
+local function paintOpenBtn()
+	tween(openBtn, {
+		BackgroundColor3 = hidden and Theme.Accent or Theme.Panel,
+		TextColor3 = hidden and Color3.new(1, 1, 1) or Theme.AccentSoft,
+	})
+end
+
 local function toggleGui()
 	hidden = not hidden
 	main.Visible = not hidden
+	paintOpenBtn()
 end
+
 minBtn.MouseButton1Click:Connect(toggleGui)
+
+-- tap vs geser
+local pressing, moved = false, false
+local startInput, startPos
+
+openBtn.InputBegan:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+		pressing, moved = true, false
+		startInput = i.Position
+		startPos = openBtn.Position
+	end
+end)
+
+table.insert(conns, UIS.InputChanged:Connect(function(i)
+	if not pressing then return end
+	if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then
+		local d = i.Position - startInput
+		if d.Magnitude > 8 then moved = true end
+		if moved then
+			openBtn.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+		end
+	end
+end))
+
+table.insert(conns, UIS.InputEnded:Connect(function(i)
+	if not pressing then return end
+	if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+		pressing = false
+		if not moved then toggleGui() end
+	end
+end))
+
+-- RightShift tetap bisa dipakai
+table.insert(conns, UIS.InputBegan:Connect(function(input, gpe)
+	if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
+		toggleGui()
+	end
+end))
+
 closeBtn.MouseButton1Click:Connect(function()
 	local ids = {}
 	for id, v in pairs(LiuGhost.State) do
 		if v == true then table.insert(ids, id) end
 	end
 	for _, id in ipairs(ids) do fire(id, false) end
+	for _, c in ipairs(conns) do c:Disconnect() end
 	gui:Destroy()
-end)
-UIS.InputBegan:Connect(function(input, gpe)
-	if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
-		toggleGui()
-	end
 end)
 
 ----------------------------------------------------------------
