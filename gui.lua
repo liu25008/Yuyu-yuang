@@ -379,15 +379,17 @@ local function toggleGui()
 	main.Visible = not hidden
 end
 minBtn.MouseButton1Click:Connect(toggleGui)
-closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+closeBtn.MouseButton1Click:Connect(function()
+	for id, v in pairs(LiuGhost.State) do
+		if v == true then fire(id, false) end
+	end
+	gui:Destroy()
+end)
 UIS.InputBegan:Connect(function(input, gpe)
 	if not gpe and input.KeyCode == Enum.KeyCode.RightShift then
 		toggleGui()
 	end
 end)
 
--- Pasang kode lo di sini:
--- LiuGhost.Hooks.AutoDagger = function(state) end
--- LiuGhost.Hooks.DaggerRadius = function(value) end
 
 return LiuGhost
