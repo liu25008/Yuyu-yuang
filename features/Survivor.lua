@@ -22,29 +22,31 @@ return function(LiuGhost)
 	}
 
 	local cfg = {
-		antiSlow = false,
-		boost = tonumber(LiuGhost.State.SpeedBoost) or 1,
+		
 		autoGen = false,
 		genMode = LiuGhost.State.AutoGenMode or "Perfect",
 	}
 
 	local function guiAlive()
+		local ok, hui = pcall(function() return gethui and gethui() end)
+		if ok and hui and hui:FindFirstChild("LiuGhost") then return true end
 		local pg = lp:FindFirstChild("PlayerGui")
 		return pg ~= nil and pg:FindFirstChild("LiuGhost") ~= nil
 	end
 
 	----------------------------------------------------------------
-	-- ANTI SLOW VAULT
+	-- FAST VAULT (toggle: AntiSlowVault)
 	----------------------------------------------------------------
-	local baseSpeed = 16
-	local savedSpeed = nil
-	local activeTracks = 0
+	local VAULT_ANIM_SPEED = 2.5  -- kecepatan animasi vault
+	local VAULT_PUSH = 28         -- dorongan maju saat vault (stud/detik)
+
+	local vaulting = 0
 	local animConns = {}
 
 	local function isVaultAnim(track)
-		local name = ""
-		if track.Animation then name = track.Animation.Name end
-		name = string.lower(name .. " " .. track.Name)
+		local name = track.Name
+		if track.Animation then name = name .. " " .. track.Animation.Name end
+		name = string.lower(name)
 		for _, k in ipairs(keywords) do
 			if string.find(name, k, 1, true) then return true end
 		end
@@ -58,42 +60,59 @@ return function(LiuGhost)
 
 	local function setupChar(char)
 		clearAnimConns()
-		activeTracks = 0
-		savedSpeed = nil
+		vaulting = 0
 
 		local hum = char:WaitForChild("Humanoid", 10)
 		if not hum then return end
 		local animator = hum:FindFirstChildOfClass("Animator") or hum:WaitForChild("Animator", 5)
-		baseSpeed = hum.WalkSpeed
+		if not animator then return end
 
-		if animator then
-			table.insert(animConns, animator.AnimationPlayed:Connect(function(track)
-				if not isVaultAnim(track) then return end
-				if activeTracks == 0 then savedSpeed = baseSpeed end
-				activeTracks += 1
-				track.Stopped:Once(function()
-					activeTracks = math.max(0, activeTracks - 1)
-					if activeTracks == 0 then savedSpeed = nil end
-				end)
-			end))
-		end
+		table.insert(animConns, animator.AnimationPlayed:Connect(function(track)
+			if not isVaultAnim(track) then return end
+			vaulting += 1
+			if LiuGhost.State.AntiSlowVault == true then
+				track:AdjustSpeed(VAULT_ANIM_SPEED)
+			end
+			track.Stopped:Once(function()
+				vaulting = math.max(0, vaulting - 1)
+			end)
+		end))
 	end
 
 	if lp.Character then task.spawn(setupChar, lp.Character) end
 	local charConn = lp.CharacterAdded:Connect(setupChar)
 
 	----------------------------------------------------------------
-	-- SPEED BOOST
+	-- SPEED BOOST (toggle: SpeedBoostOn, slider: SpeedBoost)
 	----------------------------------------------------------------
-	local function isSprinting()
-		return UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
-	end
+	local moveConn
+	moveConn = RunService.Heartbeat:Connect(function(dt)
+		if not guiAlive() then
+			moveConn:Disconnect()
+			return
+		end
 
-	local function boostEnabled()
-		local t = LiuGhost.State.SpeedBoostOn
-		return t == nil or t == true
-	end
+		local char = lp.Character
+		local hum = char and char:FindFirstChildOfClass("Humanoid")
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if not hum or not root or hum.Health <= 0 then return end
 
+		-- fast vault: dorong maju selama animasi vault jalan
+		if vaulting > 0 and LiuGhost.State.AntiSlowVault == true then
+			local look = root.CFrame.LookVector
+			local flat = Vector3.new(look.X, 0, look.Z)
+			if flat.Magnitude > 0 then
+				root.CFrame = root.CFrame + flat.Unit * VAULT_PUSH * dt
+			end
+			return
+		end
+
+		-- speed boost: tambah jarak tempuh saat bergerak
+		if LiuGhost.State.SpeedBoostOn == true and hum.MoveDirection.Magnitude > 0 then
+			local boost = tonumber(LiuGhost.State.SpeedBoost) or 1
+			root.CFrame = root.CFrame + hum.MoveDirection * hum.WalkSpeed * PERCENT_PER_UNIT * boost * dt
+		end
+	end)
 	----------------------------------------------------------------
 	-- AUTO GEN
 	----------------------------------------------------------------
