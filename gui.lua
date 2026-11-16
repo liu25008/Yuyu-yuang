@@ -33,12 +33,13 @@ local LiuGhost = { Hooks = {}, State = {} }
 --  slider : id, text, min, max, default, step(opsional, misal 0.1)
 --  choice : id, text, options{...}, default(index), asIndex(true = kirim angka index)
 local Pages = {
+	-- id Survivor disamakan dengan features/Survivor.lua
 	{ name = "Survivor", icon = "", items = {
-		{ type = "toggle", id = "AutoGen", text = "Auto Gen", icon = "" },
-		{ type = "choice", id = "AutoGenMode", text = "Mode Auto Gen", options = { "Perfect", "Instan" }, default = 1, icon = "" },
+		{ type = "toggle", id = "AutoSkill", text = "Auto Gen", icon = "" },
+		{ type = "choice", id = "AutoSkillMode", text = "Mode Auto Gen", options = { "Perfect", "Instan" }, default = 1, icon = "" },
 		{ type = "toggle", id = "AntiSlowVault", text = "Anti Slow Vault", icon = "" },
 		{ type = "toggle", id = "SpeedBoostOn", text = "Speed Boost", icon = "" },
-		{ type = "slider", id = "SpeedBoost", text = "Kekuatan Speed Boost", min = 0.1, max = 2, default = 1, step = 0.1, icon = "" },
+		{ type = "slider", id = "SpeedBoost", text = "Kekuatan Speed Boost", min = 1, max = 10, default = 3, step = 1, icon = "" },
 	}},
 	{ name = "Dagger", icon = "", items = {
 		{ type = "toggle", id = "AutoDagger", text = "Auto Dagger", icon = "" },
@@ -577,6 +578,7 @@ closeBtn.MouseButton1Click:Connect(function()
 	for _, c in ipairs(conns) do c:Disconnect() end
 	gui:Destroy()
 end)
+
 ----------------------------------------------------------------
 -- LOAD SEMUA FEATURES (setelah State + GUI siap)
 ----------------------------------------------------------------
