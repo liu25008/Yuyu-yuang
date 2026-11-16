@@ -4,6 +4,16 @@ local UIS = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
+----------------------------------------------------------------
+-- LOADER FEATURES
+----------------------------------------------------------------
+-- Urutan load. Nama harus sama dengan nama file di features/
+local FeatureList = { "Survivor", "Dagger", "Esp", "Aimbot", "Moonwalk", "Crouch" }
+
+local Source = {
+	Folder = script and script.Parent and script.Parent:FindFirstChild("features"), -- ModuleScript
+	Base = "https://raw.githubusercontent.com/liu25008/Yuyu-yuang/main/features/",
+
 local Theme = {
 	Bg = Color3.fromRGB(12, 8, 20),
 	Panel = Color3.fromRGB(18, 13, 30),
@@ -17,8 +27,18 @@ local Theme = {
 
 local LiuGhost = { Hooks = {}, State = {} }
 
--- 1 fitur = 1 halaman. Isi "icon" dengan asset id (rbxassetid://...) kalau mau pakai gambar.
+-- Tipe item:
+--  toggle : id, text, default(bool)
+--  slider : id, text, min, max, default, step(opsional, misal 0.1)
+--  choice : id, text, options{...}, default(index), asIndex(true = kirim angka index)
 local Pages = {
+	{ name = "Survivor", icon = "", items = {
+		{ type = "toggle", id = "AutoGen", text = "Auto Gen", icon = "" },
+		{ type = "choice", id = "AutoGenMode", text = "Mode Auto Gen", options = { "Perfect", "Instan" }, default = 1, icon = "" },
+		{ type = "toggle", id = "AntiSlowVault", text = "Anti Slow Vault", icon = "" },
+		{ type = "toggle", id = "SpeedBoostOn", text = "Speed Boost", icon = "" },
+		{ type = "slider", id = "SpeedBoost", text = "Kekuatan Speed Boost", min = 0.1, max = 2, default = 1, step = 0.1, icon = "" },
+	}},
 	{ name = "Dagger", icon = "", items = {
 		{ type = "toggle", id = "AutoDagger", text = "Auto Dagger", icon = "" },
 		{ type = "toggle", id = "FakeHit", text = "Fake Hit", icon = "" },
@@ -28,6 +48,7 @@ local Pages = {
 		{ type = "toggle", id = "EspKiller", text = "ESP Killer", icon = "" },
 		{ type = "toggle", id = "EspSurvivor", text = "ESP Survivor", icon = "" },
 		{ type = "toggle", id = "EspDistance", text = "Jarak Killer dan Survivor", icon = "" },
+		{ type = "toggle", id = "EspGenerator", text = "ESP Generator", icon = "" },
 		{ type = "toggle", id = "EspTrap", text = "ESP Trap", icon = "" },
 		{ type = "toggle", id = "EspPallet", text = "ESP Pallet", icon = "" },
 		{ type = "toggle", id = "EspWindow", text = "ESP Window", icon = "" },
@@ -35,6 +56,9 @@ local Pages = {
 	}},
 	{ name = "Aimbot", icon = "", items = {
 		{ type = "toggle", id = "Aimbot", text = "Aimbot", icon = "" },
+		{ type = "choice", id = "AimMode", text = "Mode Aim", options = { "Pistol", "Jeff", "Cure" }, default = 1, asIndex = true, icon = "" },
+		{ type = "toggle", id = "AimHold", text = "Tahan Klik Kanan", default = true, icon = "" },
+		{ type = "toggle", id = "AimWall", text = "Cek Tembok", default = true, icon = "" },
 	}},
 	{ name = "Moonwalk", icon = "", items = {
 		{ type = "toggle", id = "Moonwalk", text = "Moonwalk", icon = "" },
@@ -105,8 +129,8 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(520, 330)
-main.Position = UDim2.new(0.5, -260, 0.5, -165)
+main.Size = UDim2.fromOffset(520, 340)
+main.Position = UDim2.new(0.5, -260, 0.5, -170)
 main.BackgroundColor3 = Theme.Bg
 main.BorderSizePixel = 0
 main.Parent = gui
@@ -182,11 +206,14 @@ do
 end
 
 -- Sidebar
-local side = Instance.new("Frame")
+local side = Instance.new("ScrollingFrame")
 side.Size = UDim2.new(0, 150, 1, -58)
 side.Position = UDim2.fromOffset(10, 48)
 side.BackgroundColor3 = Theme.Panel
 side.BorderSizePixel = 0
+side.ScrollBarThickness = 0
+side.AutomaticCanvasSize = Enum.AutomaticSize.Y
+side.CanvasSize = UDim2.new()
 side.Parent = main
 round(side, 10)
 
@@ -195,6 +222,7 @@ sideList.Padding = UDim.new(0, 4)
 sideList.Parent = side
 local sidePad = Instance.new("UIPadding")
 sidePad.PaddingTop = UDim.new(0, 8)
+sidePad.PaddingBottom = UDim.new(0, 8)
 sidePad.PaddingLeft = UDim.new(0, 8)
 sidePad.PaddingRight = UDim.new(0, 8)
 sidePad.Parent = side
@@ -247,18 +275,31 @@ local function makeToggle(parent, item)
 	knob.Parent = pill
 	round(knob, 8)
 
-	local on = false
-	LiuGhost.State[item.id] = false
+	local on = item.default == true
+	LiuGhost.State[item.id] = on
+
+	local function paint(animated)
+		local pp = { BackgroundColor3 = on and Theme.Accent or Theme.Bg }
+		local kp = {
+			Position = on and UDim2.fromOffset(23, 3) or UDim2.fromOffset(3, 3),
+			BackgroundColor3 = on and Color3.new(1, 1, 1) or Theme.Muted,
+		}
+		if animated then
+			tween(pill, pp)
+			tween(knob, kp)
+		else
+			pill.BackgroundColor3 = pp.BackgroundColor3
+			knob.Position = kp.Position
+			knob.BackgroundColor3 = kp.BackgroundColor3
+		end
+	end
+	paint(false)
 
 	row.MouseEnter:Connect(function() tween(row, { BackgroundColor3 = Theme.RowHover }) end)
 	row.MouseLeave:Connect(function() tween(row, { BackgroundColor3 = Theme.Row }) end)
 	row.MouseButton1Click:Connect(function()
 		on = not on
-		tween(pill, { BackgroundColor3 = on and Theme.Accent or Theme.Bg })
-		tween(knob, {
-			Position = on and UDim2.fromOffset(23, 3) or UDim2.fromOffset(3, 3),
-			BackgroundColor3 = on and Color3.new(1, 1, 1) or Theme.Muted,
-		})
+		paint(true)
 		fire(item.id, on)
 	end)
 end
@@ -296,10 +337,14 @@ local function makeSlider(parent, item)
 	fill.Parent = track
 	round(fill, 3)
 
+	local step = item.step or 1
+
 	local function setValue(v)
-		v = math.clamp(math.floor(v + 0.5), item.min, item.max)
+		v = math.floor(v / step + 0.5) * step
+		v = math.clamp(v, item.min, item.max)
+		v = math.floor(v * 1000 + 0.5) / 1000
 		fill.Size = UDim2.new((v - item.min) / (item.max - item.min), 0, 1, 0)
-		val.Text = tostring(v)
+		val.Text = step < 1 and string.format("%.1f", v) or tostring(v)
 		fire(item.id, v)
 	end
 	setValue(item.default)
@@ -324,6 +369,49 @@ local function makeSlider(parent, item)
 		if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			update(input.Position.X)
 		end
+	end)
+end
+
+local function makeChoice(parent, item)
+	local row = Instance.new("Frame")
+	row.Size = UDim2.new(1, -6, 0, 44)
+	row.BackgroundColor3 = Theme.Row
+	row.BorderSizePixel = 0
+	row.Parent = parent
+	round(row, 10)
+
+	iconSlot(row, item.icon, UDim2.fromOffset(14, 13), Theme.AccentSoft)
+
+	local l = label(row, item.text, 14)
+	l.Size = UDim2.new(1, -164, 1, 0)
+	l.Position = UDim2.fromOffset(44, 0)
+
+	local idx = math.clamp(item.default or 1, 1, #item.options)
+	local function current()
+		if item.asIndex then return idx end
+		return item.options[idx]
+	end
+	LiuGhost.State[item.id] = current()
+
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.fromOffset(92, 26)
+	btn.Position = UDim2.new(1, -104, 0.5, -13)
+	btn.BackgroundColor3 = Theme.Bg
+	btn.AutoButtonColor = false
+	btn.Text = item.options[idx]
+	btn.TextColor3 = Theme.AccentSoft
+	btn.Font = Enum.Font.GothamMedium
+	btn.TextSize = 13
+	btn.BorderSizePixel = 0
+	btn.Parent = row
+	round(btn, 8)
+
+	btn.MouseEnter:Connect(function() tween(btn, { BackgroundColor3 = Theme.Accent }) end)
+	btn.MouseLeave:Connect(function() tween(btn, { BackgroundColor3 = Theme.Bg }) end)
+	btn.MouseButton1Click:Connect(function()
+		idx = idx % #item.options + 1
+		btn.Text = item.options[idx]
+		fire(item.id, current())
 	end)
 end
 
@@ -363,6 +451,8 @@ for _, p in ipairs(Pages) do
 			makeToggle(page, item)
 		elseif item.type == "slider" then
 			makeSlider(page, item)
+		elseif item.type == "choice" then
+			makeChoice(page, item)
 		end
 	end
 
@@ -380,9 +470,11 @@ local function toggleGui()
 end
 minBtn.MouseButton1Click:Connect(toggleGui)
 closeBtn.MouseButton1Click:Connect(function()
+	local ids = {}
 	for id, v in pairs(LiuGhost.State) do
-		if v == true then fire(id, false) end
+		if v == true then table.insert(ids, id) end
 	end
+	for _, id in ipairs(ids) do fire(id, false) end
 	gui:Destroy()
 end)
 UIS.InputBegan:Connect(function(input, gpe)
@@ -391,5 +483,42 @@ UIS.InputBegan:Connect(function(input, gpe)
 	end
 end)
 
+----------------------------------------------------------------
+-- LOAD SEMUA FEATURES (setelah State + GUI siap)
+----------------------------------------------------------------
+local function fetchFeature(name)
+	-- 1) ModuleScript di folder features
+	if Source.Folder then
+		local m = Source.Folder:FindFirstChild(name)
+		if m and m:IsA("ModuleScript") then
+			return require(m)
+		end
+	end
+	-- 2) URL raw
+	if Source.Base ~= "" then
+		local src = game:HttpGet(Source.Base .. name .. ".lua")
+		local fn = loadstring(src)
+		if fn then return fn() end
+	end
+	return nil
+end
+
+for _, name in ipairs(FeatureList) do
+	task.spawn(function()
+		local ok, result = pcall(fetchFeature, name)
+		if not ok then
+			warn("[LiuGhost] gagal load " .. name .. ": " .. tostring(result))
+			return
+		end
+		if type(result) ~= "function" then
+			warn("[LiuGhost] " .. name .. " tidak ditemukan / bukan function")
+			return
+		end
+		local ok2, err = pcall(result, LiuGhost)
+		if not ok2 then
+			warn("[LiuGhost] error di " .. name .. ": " .. tostring(err))
+		end
+	end)
+end
 
 return LiuGhost
