@@ -255,7 +255,7 @@ end
 		label.TextStrokeColor3 = Color3.fromRGB(255, 255, 255)
 		label.TextStrokeTransparency = 0.3
 		label.Font = big and Enum.Font.GothamBold or Enum.Font.GothamMedium
-		label.TextSize = big and 22 or 15
+		label.TextSize = big and 17 or 15
 		label.Text = d.label
 		label.Parent = bb
 	end
@@ -288,36 +288,54 @@ end
 	-- LOOP UPDATE (tiap 0.2 detik)
 	----------------------------------------------------------------
 	local acc = 0
-	RunService.Heartbeat:Connect(function(dt)
-		acc += dt
-		if acc < 0.2 then return end
-		acc = 0
+local matchAcc = 0
+RunService.Heartbeat:Connect(function(dt)
+	acc += dt
+	matchAcc += dt
+	if acc < 0.2 then return end
+	acc = 0
 
-		refreshPlayers()
+	refreshPlayers()
 
-		-- label objek: tanpa jarak, generator + persen progress
-		for _, d in pairs(kinds) do
-			for _, item in pairs(d.items) do
-				if item.part.Parent then
-					local text = d.label
-					if d.progress then
-						if not item.src then
-							item.src = findSource(item.inst)
-						end
-						if item.src then
-							local ok, v = pcall(item.src)
-							local pct = ok and toPercent(v) or nil
-							if pct then
-								text = text .. "  [" .. pct .. "%]"
-							end
-						end
+	-- cek lobby/match tiap 1 detik, bukan tiap 0.2
+	if matchAcc >= 1 then
+		matchAcc = 0
+		local now = inMatch()
+		if now ~= matchActive then
+			matchActive = now
+			for key, d in pairs(kinds) do
+				if d.matchOnly and d.on then
+					if matchActive then
+						for _, inst in ipairs(workspace:GetDescendants()) do addItem(inst) end
+					else
+						for inst in pairs(d.items) do removeItem(key, inst) end
 					end
-					item.label.Text = text
 				end
 			end
 		end
-	end)
+	end
 
+	for _, d in pairs(kinds) do
+		for _, item in pairs(d.items) do
+			if item.part.Parent and item.label then
+				local text = d.label
+				if d.progress then
+					if not item.src then
+						item.src = findSource(item.inst)
+					end
+					if item.src then
+						local ok, v = pcall(item.src)
+						local pct = ok and toPercent(v) or nil
+						if pct then
+							text = text .. "  [" .. pct .. "%]"
+						end
+					end
+				end
+				item.label.Text = text
+			end
+		end
+	end
+end)
 	----------------------------------------------------------------
 	-- HOOKS DARI GUI
 	----------------------------------------------------------------
