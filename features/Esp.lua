@@ -159,9 +159,23 @@ local TEXT = Color3.fromRGB(235, 235, 235)
 	----------------------------------------------------------------
 	-- ESP OBJEK (Pallet / Window / Trap / Zombie / Generator)
 	----------------------------------------------------------------
+	local matchActive = false
+local genCache
+
+local function inMatch()
+	if genCache and genCache:IsDescendantOf(workspace) then return true end
+	genCache = nil
+	for _, inst in ipairs(workspace:GetDescendants()) do
+		if inst:IsA("Model") and string.find(string.lower(inst.Name), "generator", 1, true) then
+			genCache = inst
+			return true
+		end
+	end
+	return false
+end
 	local kinds = {
-	pallet    = { kw = "pallet",    label = "Pallet",    color = ORANGE, thick = 0.04, on = false, items = {}, nolabel = true },
-	window    = { kw = "window",    label = "Window",    color = ORANGE, thick = 0.04, on = false, items = {}, nolabel = true },
+	pallet    = { kw = "pallet",    label = "Pallet",    color = ORANGE, thick = 0.04, on = false, items = {}, nolabel = true, matchOnly = true },
+	window    = { kw = "window",    label = "Window",    color = ORANGE, thick = 0.04, on = false, items = {}, nolabel = true, matchOnly = true },
 	trap      = { kw = "trap",      label = "TRAP",      color = BLUE,   thick = 0.09, on = false, items = {} },
 	zombie    = { kw = "zombie",    label = "Zombie",    color = GREEN,  thick = 0.05, on = false, items = {} },
 	generator = { kw = "generator", label = "Generator", color = PINK,   thick = 0.05, on = false, items = {}, progress = true },
@@ -206,6 +220,7 @@ end
 	if tracked[inst] or not inst.Parent then return end
 	local key = classify(inst)
 	if not key or hasTrackedAncestor(inst) then return end
+		if kinds[key].matchOnly and not matchActive then return end
 	if inst:IsA("Model") and Players:GetPlayerFromCharacter(inst) then return end
 	local part = anchorPart(inst)
 	if not part then return end
@@ -256,15 +271,15 @@ end
 	}
 end
 	local function setKind(key, state)
-		local d = kinds[key]
-		d.on = state
-		if state then
-			for _, inst in ipairs(workspace:GetDescendants()) do addItem(inst) end
-		else
-			for inst in pairs(d.items) do removeItem(key, inst) end
-		end
+	local d = kinds[key]
+	d.on = state
+	if state then
+		if d.matchOnly then matchActive = inMatch() end
+		for _, inst in ipairs(workspace:GetDescendants()) do addItem(inst) end
+	else
+		for inst in pairs(d.items) do removeItem(key, inst) end
 	end
-
+end
 	workspace.DescendantAdded:Connect(function(inst)
 		task.defer(addItem, inst)
 	end)
