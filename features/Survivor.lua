@@ -1,7 +1,9 @@
 return function(LiuGhost)
 	local Players = game:GetService("Players")
+	local RS = game:GetService("ReplicatedStorage")
 	local RunService = game:GetService("RunService")
 	local UserInputService = game:GetService("UserInputService")
+	local VIM = game:GetService("VirtualInputManager")
 
 	local lp = Players.LocalPlayer
 
@@ -9,12 +11,27 @@ return function(LiuGhost)
 	-- KONFIG
 	----------------------------------------------------------------
 	local keywords = { "vault", "window", "pallet", "mantle", "climb" }
-	local PERCENT_PER_UNIT = 0.15 -- boost 0.1 = 1.5%, boost 2.0 = 30%
+	local PERCENT_PER_UNIT = 0.15
+
+	local GenCfg = {
+		Range = 12,
+		GenKeyword = "generator",
+		RemoteKeywords = { "repair", "skillcheck", "generator" },
+		InstanSpeed = 0.05,
+		PerfectDelay = 0.35,
+	}
 
 	local cfg = {
 		antiSlow = false,
 		boost = tonumber(LiuGhost.State.SpeedBoost) or 1,
+		autoGen = false,
+		genMode = LiuGhost.State.AutoGenMode or "Perfect",
 	}
+
+	local function guiAlive()
+		local pg = lp:FindFirstChild("PlayerGui")
+		return pg ~= nil and pg:FindFirstChild("LiuGhost") ~= nil
+	end
 
 	----------------------------------------------------------------
 	-- ANTI SLOW VAULT
@@ -66,65 +83,92 @@ return function(LiuGhost)
 	local charConn = lp.CharacterAdded:Connect(setupChar)
 
 	----------------------------------------------------------------
-	-- SPEED BOOST (hanya saat lari / LeftShift)
+	-- SPEED BOOST
 	----------------------------------------------------------------
 	local function isSprinting()
 		return UserInputService:IsKeyDown(Enum.KeyCode.LeftShift)
 	end
 
 	local function boostEnabled()
-		-- kalau nanti GUI punya toggle "SpeedBoostOn", dipakai. Kalau tidak ada, selalu aktif.
 		local t = LiuGhost.State.SpeedBoostOn
 		return t == nil or t == true
 	end
 
-	local function guiAlive()
-		local pg = lp:FindFirstChild("PlayerGui")
-		return pg ~= nil and pg:FindFirstChild("LiuGhost") ~= nil
-	end
-
-	local hbConn
-	hbConn = RunService.Heartbeat:Connect(function(dt)
-		-- GUI ditutup: matikan semuanya
-		if not guiAlive() then
-			hbConn:Disconnect()
-			charConn:Disconnect()
-			clearAnimConns()
-			return
-		end
-
-		local char = lp.Character
-		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		local root = char and char:FindFirstChild("HumanoidRootPart")
-		if not hum or not root or hum.Health <= 0 then return end
-
-		-- Anti slow vault
-		if activeTracks == 0 then
-			baseSpeed = hum.WalkSpeed
-		elseif cfg.antiSlow and savedSpeed and hum.WalkSpeed < savedSpeed then
-			hum.WalkSpeed = savedSpeed
-		end
-
-		-- Speed boost
-		if boostEnabled() and isSprinting() then
-			local dir = hum.MoveDirection
-			if dir.Magnitude > 0 then
-				local extra = hum.WalkSpeed * (cfg.boost * PERCENT_PER_UNIT)
-				root.CFrame = root.CFrame + dir.Unit * (extra * dt)
+	----------------------------------------------------------------
+	-- AUTO GEN
+	----------------------------------------------------------------
+	local gens, lastScan = {}, 0
+	local function scanGens()
+		if tick() - lastScan < 5 then return gens end
+		lastScan = tick()
+		gens = {}
+		for _, v in ipairs(workspace:GetDescendants()) do
+			if v:IsA("Model") and string.find(v.Name:lower(), GenCfg.GenKeyword, 1, true) then
+				table.insert(gens, v)
 			end
 		end
-	end)
-
-	----------------------------------------------------------------
-	-- HOOKS DARI GUI
-	----------------------------------------------------------------
-	LiuGhost.Hooks.AntiSlowVault = function(state)
-		cfg.antiSlow = state == true
+		return gens
 	end
 
-	LiuGhost.Hooks.SpeedBoost = function(value)
-		if type(value) == "number" then
-			cfg.boost = math.clamp(value, 0.1, 2)
+	local function nearestGen()
+		local char = lp.Character
+		local root = char and char:FindFirstChild("HumanoidRootPart")
+		if not root then return end
+		local best, dist = nil, GenCfg.Range
+		for _, g in ipairs(scanGens()) do
+			local ok, pos = pcall(function() return g:GetPivot().Position end)
+			if ok then
+				local d = (pos - root.Position).Magnitude
+				if d <= dist then best, dist = g, d end
+			end
+		end
+		return best
+	end
+
+	local function findRemotes()
+		local list = {}
+		for _, v in ipairs(RS:GetDescendants()) do
+			if v:IsA("RemoteEvent") then
+				local n = v.Name:lower()
+				for _, k in ipairs(GenCfg.RemoteKeywords) do
+					if string.find(n, k, 1, true) then
+						table.insert(list, v)
+						break
+					end
+				end
+			end
+		end
+		return list
+	end
+
+	local function firePrompt(gen)
+		if not fireproximityprompt then return end
+		for _, p in ipairs(gen:GetDescendants()) do
+			if p:IsA("ProximityPrompt") then fireproximityprompt(p) end
 		end
 	end
-end
+
+	local function skillCheckVisible()
+		local pg = lp:FindFirstChild("PlayerGui")
+		if not pg then return false end
+		for _, g in ipairs(pg:GetDescendants()) do
+			if g:IsA("GuiObject") and g.Visible and string.find(g.Name:lower(), "skillcheck", 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function pressSpace()
+		VIM:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+		VIM:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+	end
+
+	task.spawn(function()
+		local remotes = findRemotes()
+		while guiAlive() do
+			if cfg.autoGen then
+				local g = nearestGen()
+				if g then
+					firePrompt(g)
+					if cfg.g
