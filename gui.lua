@@ -123,11 +123,20 @@ local function iconSlot(parent, icon, pos, color)
 end
 
 -- Root
+local function safeParent()
+	local ok, target = pcall(function()
+		return gethui and gethui()
+	end)
+	if ok and target then return target end
+	return LocalPlayer:WaitForChild("PlayerGui")
+end
+
 local gui = Instance.new("ScreenGui")
 gui.Name = "LiuGhost"
 gui.ResetOnSpawn = false
+gui.DisplayOrder = 999
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+gui.Parent = safeParent()
 
 local main = Instance.new("Frame")
 main.Size = UDim2.fromOffset(520, 340)
@@ -541,7 +550,25 @@ table.insert(conns, UIS.InputBegan:Connect(function(input, gpe)
 	end
 end))
 
+local closed = false
+
+task.spawn(function()
+	while not closed do
+		task.wait(0.5)
+		if closed then break end
+
+		local target = safeParent()
+		if gui.Parent ~= target then
+			pcall(function() gui.Parent = target end)
+		end
+		if not gui.Enabled then gui.Enabled = true end
+		if not openBtn.Visible then openBtn.Visible = true end
+		if main.Visible == hidden then main.Visible = not hidden end
+	end
+end)
+
 closeBtn.MouseButton1Click:Connect(function()
+	closed = true
 	local ids = {}
 	for id, v in pairs(LiuGhost.State) do
 		if v == true then table.insert(ids, id) end
@@ -550,7 +577,6 @@ closeBtn.MouseButton1Click:Connect(function()
 	for _, c in ipairs(conns) do c:Disconnect() end
 	gui:Destroy()
 end)
-
 ----------------------------------------------------------------
 -- LOAD SEMUA FEATURES (setelah State + GUI siap)
 ----------------------------------------------------------------
